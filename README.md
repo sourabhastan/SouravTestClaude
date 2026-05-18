@@ -25,6 +25,7 @@ server/             Express app, routes, middleware, seed script
 web/                React + Vite SPA
 package.json        Backend deps + scripts (root)
 vercel.json         Vercel build + rewrites + maxDuration
+render.yaml         Render Blueprint (web service + Postgres)
 Dockerfile          Multi-stage build for self-hosting
 docker-compose.yml  Local Postgres for development
 .env.example
@@ -131,6 +132,30 @@ Vercel serverless functions are short-lived and don't share memory, so the
 in-process SSE fan-out cannot push events between independent invocations.
 The server returns `503` on `/api/events` when `VERCEL=1` is set, and the
 client automatically falls back to polling every 5 seconds.
+
+## Deploy to Render (long-lived process, full SSE)
+
+Render runs the Express server as a long-lived Node process, so SSE
+works fully and the in-memory rate limit is consistent across requests.
+The repo ships a Blueprint at `render.yaml` that provisions both the
+web service and a free Postgres database in one shot.
+
+1. Push your code to GitHub (the `main` branch is what `render.yaml`
+   targets by default — edit `branch:` if you want a different one).
+2. Go to <https://dashboard.render.com/blueprints> → **New Blueprint
+   Instance** → connect this repo. Render reads `render.yaml`, shows
+   you the planned `talks-web` service and `talks-db` database, and
+   provisions both on **Apply**.
+3. Render automatically injects `DATABASE_URL` into the web service
+   from the database. No env vars to copy by hand.
+4. First deploy takes a couple of minutes; the schema is auto-created
+   on the first request and the 8 sample talks are inserted if the
+   `talks` table is empty.
+
+Free tier notes: web services spin down after 15 minutes of inactivity
+(first hit after idle takes ~30 s), and the free Postgres instance is
+deleted after 90 days. Upgrade to a paid plan for either if you want
+this to stick around.
 
 ## Deploy with Docker (long-lived process, full SSE)
 
