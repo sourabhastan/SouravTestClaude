@@ -8,21 +8,20 @@ RUN npm install --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 
-# Stage 2: install server prod deps
+# Stage 2: install backend prod deps (root package.json)
 FROM node:20-alpine AS server-deps
-WORKDIR /app/server
-COPY server/package.json server/package-lock.json* ./
-RUN apk add --no-cache python3 make g++ \
-    && npm install --omit=dev --no-audit --no-fund \
-    && apk del python3 make g++
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm install --omit=dev --no-audit --no-fund
 
 # Stage 3: runtime
 FROM node:20-alpine AS runtime
 ENV NODE_ENV=production \
     PORT=3000 \
-    DB_PATH=/data/app.db
+    TURSO_DATABASE_URL=file:/data/app.db
 WORKDIR /app
-COPY --from=server-deps /app/server/node_modules ./server/node_modules
+COPY --from=server-deps /app/node_modules ./node_modules
+COPY package.json ./
 COPY server/ ./server/
 COPY --from=web-build /app/web/dist ./web/dist
 ARG BUILD_TIME=unknown

@@ -3,7 +3,19 @@ import { addClient } from '../lib/sse.js';
 
 const router = Router();
 
+const SSE_DISABLED = !!process.env.VERCEL;
+
 router.get('/events', (req, res) => {
+  if (SSE_DISABLED) {
+    res.status(503).json({
+      error: {
+        code: 'SSE_DISABLED',
+        message:
+          'Real-time stream is not available in this environment; client should poll.',
+      },
+    });
+    return;
+  }
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
