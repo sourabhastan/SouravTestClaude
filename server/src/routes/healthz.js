@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db.js';
+import { pool } from '../db.js';
 
 const router = Router();
 
@@ -11,7 +11,7 @@ const BUILD_TIME =
 router.get('/healthz', async (_req, res, next) => {
   try {
     const start = process.hrtime.bigint();
-    await db.execute('SELECT 1 AS ok');
+    await pool.query('SELECT 1');
     const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
     res.json({
       ok: true,

@@ -1,20 +1,22 @@
-import { createClient } from '@libsql/client';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import pg from 'pg';
+import { SAMPLE_TALKS } from './sampleTalks.js';
 
-function buildUrl() {
-  const url = process.env.TURSO_DATABASE_URL || 'file:./data/app.db';
-  if (url.startsWith('file:')) {
-    const path = url.slice('file:'.length);
-    mkdirSync(dirname(path), { recursive: true });
-  }
-  return url;
+const connectionString =
+  process.env.POSTGRES_URL ||
+  process.env.POSTGRES_URL_NON_POOLING ||
+  process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error(
+    'No database connection string. Set POSTGRES_URL or DATABASE_URL.'
+  );
 }
 
-export const db = createClient({
-  url: buildUrl(),
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
+export const pool = new pg.Pool({ connectionString });
+
+export function query(sql, params) {
+  return pool.query(sql, params);
+}
 
 let initPromise = null;
 
@@ -24,45 +26,58 @@ export function ensureDb() {
 }
 
 async function initialize() {
-  await db.batch(
-    [
-      `CREATE TABLE IF NOT EXISTS talks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS talks (
+        id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
         abstract TEXT NOT NULL,
         speaker_name TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`,
-      `CREATE TABLE IF NOT EXISTS votes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS votes (
+        id SERIAL PRIMARY KEY,
         talk_id INTEGER NOT NULL REFERENCES talks(id) ON DELETE CASCADE,
         visitor_id TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE(talk_id, visitor_id)
-      )`,
-      `CREATE INDEX IF NOT EXISTS idx_votes_talk ON votes(talk_id)`,
-      `CREATE TABLE IF NOT EXISTS comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+      )
+    `);
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_votes_talk ON votes(talk_id)`
+    );
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS comments (
+        id SERIAL PRIMARY KEY,
         talk_id INTEGER NOT NULL REFERENCES talks(id) ON DELETE CASCADE,
         body TEXT NOT NULL,
         author_name TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`,
-      `CREATE INDEX IF NOT EXISTS idx_comments_talk ON comments(talk_id)`,
-    ],
-    'write'
-  );
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS idx_comments_talk ON comments(talk_id)`
+    );
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 
   if (process.env.AUTO_SEED !== 'false') {
-    const r = await db.execute('SELECT COUNT(*) AS c FROM talks');
-    const count = Number(r.rows[0].c);
-    if (count === 0) {
-      const { SAMPLE_TALKS } = await import('./sampleTalks.js');
+    const r = await pool.query('SELECT COUNT(*)::int AS c FROM talks');
+    if (r.rows[0].c === 0) {
       for (const t of SAMPLE_TALKS) {
-        await db.execute({
-          sql: 'INSERT INTO talks (title, abstract, speaker_name) VALUES (?, ?, ?)',
-          args: [t.title, t.abstract, t.speaker_name],
-        });
+        await pool.query(
+          'INSERT INTO talks (title, abstract, speaker_name) VALUES ($1, $2, $3)',
+          [t.title, t.abstract, t.speaker_name]
+        );
       }
       console.log(`[db] auto-seeded ${SAMPLE_TALKS.length} talks`);
     }
