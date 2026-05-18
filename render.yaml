@@ -13,7 +13,7 @@ services:
     plan: free
     region: oregon
     branch: main
-    buildCommand: "npm install && cd web && npm install && npm run build"
+    buildCommand: "npm install --include=dev && cd web && npm install --include=dev && npm run build"
     startCommand: "node server/src/index.js"
     healthCheckPath: /api/healthz
     autoDeploy: true
