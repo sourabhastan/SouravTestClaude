@@ -29,6 +29,7 @@ web/                React + Vite SPA
 package.json        Backend deps + scripts (root)
 vercel.json         Vercel build + rewrites + maxDuration
 render.yaml         Render Blueprint (web service + Postgres)
+railway.json        Railway service config (Nixpacks build + start)
 wrangler.toml       Cloudflare Worker config (assets + D1 binding)
 Dockerfile          Multi-stage build for self-hosting
 docker-compose.yml  Local Postgres for development
@@ -160,6 +161,29 @@ Free tier notes: web services spin down after 15 minutes of inactivity
 (first hit after idle takes ~30 s), and the free Postgres instance is
 deleted after 90 days. Upgrade to a paid plan for either if you want
 this to stick around.
+
+## Deploy to Railway (Express + Postgres)
+
+Railway is the simplest "push and forget" target — Nixpacks builds the
+SPA, the Express server boots, `ensureDb()` creates the schema and
+auto-seeds 8 talks the first time the talks table is empty.
+
+1. <https://railway.app/new> → **Deploy from GitHub repo** → pick this
+   repo, branch `main`. Railway reads `railway.json` and starts the
+   first build.
+2. Inside the new project, **+ New → Database → Add PostgreSQL**.
+3. Click the web service → **Variables** tab → **+ New Variable**:
+   - Name: `DATABASE_URL`
+   - Value: pick **Add Reference** → `Postgres.DATABASE_URL`
+   - Add a second one: `NODE_ENV` = `production`
+4. Web service → **Settings → Networking → Generate Domain** to get a
+   public `*.up.railway.app` URL.
+5. Trigger a redeploy (the deploy that ran before `DATABASE_URL` was
+   set will be missing the binding). Future pushes to `main`
+   auto-deploy.
+
+The healthcheck on `/api/healthz` blocks promotion of bad builds, so
+if Postgres isn't reachable the deploy stays on the old version.
 
 ## Deploy to Cloudflare Workers (Hono + D1)
 

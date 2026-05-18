@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install --include=dev && cd web && npm install --include=dev && npm run build"
+  },
+  "deploy": {
+    "startCommand": "node server/src/index.js",
+    "healthcheckPath": "/api/healthz",
+    "healthcheckTimeout": 100,
+    "restartPolicyType": "ON_FAILURE",
+    "numReplicas": 1
+  }
+}
