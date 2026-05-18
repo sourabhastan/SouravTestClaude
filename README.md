@@ -10,22 +10,26 @@ All seed content is synthetic — no real people, no real organizations.
 
 ## Stack
 
-- **Backend:** Node.js 20, Express 4, `pg` (Postgres)
+- **Backend:**
+  - Node.js 20 + Express 4 + `pg` for Vercel / Render / Docker
+  - Hono on Cloudflare Workers + D1 for the Cloudflare deploy
 - **Frontend:** React 18 + Vite (built once, served as static files)
 - **Real-time:** Server-Sent Events (`GET /api/events`) where supported,
   otherwise 5-second polling
-- **Storage:** Postgres — local via docker-compose, hosted via Vercel
-  Postgres / Neon
+- **Storage:** Postgres (Vercel/Render/local) or D1 (Cloudflare). One
+  codebase, two backends, both reading the same Vite SPA.
 
 ## Project layout
 
 ```
 api/index.js        Vercel serverless entrypoint (re-exports Express app)
 server/             Express app, routes, middleware, seed script
+worker/             Cloudflare Workers backend (Hono + D1)
 web/                React + Vite SPA
 package.json        Backend deps + scripts (root)
 vercel.json         Vercel build + rewrites + maxDuration
 render.yaml         Render Blueprint (web service + Postgres)
+wrangler.toml       Cloudflare Worker config (assets + D1 binding)
 Dockerfile          Multi-stage build for self-hosting
 docker-compose.yml  Local Postgres for development
 .env.example
@@ -156,6 +160,65 @@ Free tier notes: web services spin down after 15 minutes of inactivity
 (first hit after idle takes ~30 s), and the free Postgres instance is
 deleted after 90 days. Upgrade to a paid plan for either if you want
 this to stick around.
+
+## Deploy to Cloudflare Workers (Hono + D1)
+
+A separate backend in `worker/` runs the same API on Cloudflare Workers
+backed by a D1 database. Live updates fall back to polling on this
+target — Workers can stream, but the in-memory SSE fan-out pattern
+doesn't apply, so `/api/events` returns `503` here and the React client
+polls every 5 seconds.
+
+### One-time setup
+
+1. Install [Wrangler](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
+   and log in: `npx wrangler login`.
+2. Create the D1 database:
+   ```bash
+   npx wrangler d1 create talks-db
+   ```
+   Wrangler prints a `database_id`. The repo already has one wired in
+   `wrangler.toml` for the demo account — replace it with your own.
+3. Apply the schema and seed remotely:
+   ```bash
+   npx wrangler d1 execute talks-db --remote --file=worker/schema/schema.sql
+   npx wrangler d1 execute talks-db --remote --file=worker/schema/seed.sql
+   ```
+4. Build the SPA so `web/dist` exists:
+   ```bash
+   (cd web && npm install --include=dev && npm run build)
+   ```
+5. Deploy:
+   ```bash
+   npx wrangler deploy
+   ```
+
+### Deploy from GitHub (Workers Builds)
+
+Alternatively, in the Cloudflare dashboard: **Workers & Pages → Create →
+Connect to Git**. Pick this repo, branch `main`. Set:
+
+- **Build command:** `npm install && cd web && npm install --include=dev && npm run build`
+- **Deploy command:** `npx wrangler deploy`
+- **Root directory:** repo root
+
+Cloudflare picks up `wrangler.toml`, deploys the Worker, and uploads
+`web/dist` as static assets in one shot. Future pushes to `main`
+auto-deploy.
+
+### Local development
+
+```bash
+# seed the local D1 once
+npx wrangler d1 execute talks-db --local --file=worker/schema/schema.sql
+npx wrangler d1 execute talks-db --local --file=worker/schema/seed.sql
+
+# build the SPA, then run the Worker against the local D1
+(cd web && npm install --include=dev && npm run build)
+npx wrangler dev --local --port 8787
+```
+
+Then open <http://localhost:8787>.
 
 ## Deploy with Docker (long-lived process, full SSE)
 
