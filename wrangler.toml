@@ -1,0 +1,18 @@
+name = "talks-worker"
+main = "worker/src/index.js"
+compatibility_date = "2026-04-23"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "talks-db"
+database_id = "a893b851-3dba-49e3-b7f9-08ca226a3c30"
+
+[observability]
+enabled = true

@@ -1,0 +1,11 @@
+-- Seeds the 8 sample talks. Safe to re-run when the table is empty;
+-- if there are already rows you'll get duplicates.
+INSERT INTO talks (title, abstract, speaker_name) VALUES
+('Knife Skills for the Home Cook', 'A practical walkthrough of grips, cuts, and sharpening. We will cover the pinch grip, rocking and push cuts, and how to maintain a working edge without specialty equipment. Bring an onion (mentally).', 'Mira Kestrel'),
+('Trail Planning for Day Hikes', 'How to read topographic maps, estimate pace, plan water and bailouts, and pack light without skipping the essentials. Includes a simple template for trip plans you can share with a friend before heading out.', 'Owen Holloway'),
+('Light, Composition, and Patience', 'A friendly tour of natural light and framing for photographers using any camera, including phones. We will talk about golden hour, leading lines, negative space, and the underrated skill of just waiting for the moment.', 'Nadia Park'),
+('Designing a Board Game Night', 'From player counts and table flow to picking openers, headliners, and palate cleansers. A repeatable framework for hosting a board game evening that works for new players and seasoned hobbyists alike.', 'Felix Drummond'),
+('Container Gardening on a Balcony', 'Choosing pots, soil mixes, and plants that thrive in small outdoor spaces. We will cover sun mapping, watering routines, simple companions like basil and tomato, and how to keep things alive while traveling.', 'Priya Vasquez'),
+('Your First Woodworking Project', 'A small bookshelf, end to end, using a saw, a drill, sandpaper, and patience. We will discuss wood choice, basic joinery, finishing options, and how to recover from the mistakes you will absolutely make.', 'Henrik Salo'),
+('A Beginner Tour of the Night Sky', 'Finding the bright stars, planets, and a handful of constellations with no equipment. We will look at seasonal sky maps, how to read a planisphere, and what binoculars can show you on a clear evening.', 'Yuki Lambert'),
+('Sourdough Without the Mystique', 'A no-nonsense routine for keeping a starter alive and baking a reliable loaf each weekend. We will cover hydration, folds, shaping, scoring, and how to read your dough instead of the clock.', 'Tobias Reinhart');
